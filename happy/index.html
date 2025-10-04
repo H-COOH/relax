@@ -1,11 +1,8 @@
-<?php
-
-?>
 <!DOCTYPE html>
 <html lang="zh">
 <head>
 	<meta charset="UTF-8">
-	<title>Doc</title>
+	<title>Happy</title>
 	<meta name="viewport" content="initial-scale=0.75,width=device-width">
 	<script src="face-api.min.js"></script>
 	<script src="../code/popper.js"></script>
@@ -66,7 +63,7 @@
 	</div>
 
 	<div id="verify" class="d-none flex-grow-1 d-flex flex-column justify-content-center p-4">
-		<div class="flex-grow-1 d-flex flex-row justify-content-evenly align-items-center p-4">
+		<div class="flex-grow-1 d-flex justify-content-evenly align-items-center p-4">
 			<div class="col-8 h-100 p-3 text-center">
 				<video id="video" onloadedmetadata="check()" style="width:auto;height:100%" autoplay muted playsinline></video>
 			</div>
@@ -94,6 +91,7 @@
 		</div>
 	</div>
 </div>
+<p style="position:fixed;right:3vw;bottom:2vh"><a href="../">主页</a></p>
 </body>
 <style>
 	#video
@@ -106,6 +104,12 @@
 </style>
 <script>
 	let fi=id=>document.getElementById(id);
+
+	if(screen.width<600)
+	{
+		fi("verify").children[0].classList.add("flex-column");
+		fi("verify").children[0].children[0].classList.remove("h-100");
+	}
 
 	function show()
 	{
