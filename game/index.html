@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+	<meta charset="UTF-8">
+	<title>Game</title>
+	<meta name="viewport" content="initial-scale=0.5,width=device-width">
+	<script src="../code/popper.js"></script>
+	<script src="../code/bootstrap.js"></script>
+	<link href="../code/bootstrap.css" rel="stylesheet">
+</head>
+<body>
+<div class="d-flex flex-column" style="height:100vh">
+	<nav class="navbar navbar-dark bg-primary sticky-top p-2">
+		<div class="container-fluid">
+			<a class="navbar-brand text-xl" href="./">Game</a>
+		</div>
+	</nav>
+
+	<details id="tune" class="p-4" open>
+		<summary><span class="fs-3">调整超参数</span></summary>
+		<form class="p-4" onsubmit="event.preventDefault();start()" style="max-width:600px">
+			<div class="row mb-3">
+				<label for="matrix-0-0" class="col-4 col-form-label" title="自己合作，对方合作的收益"><b>合作</b>/合作 的收益</label>
+				<div class="col-8">
+					<input type="number" id="matrix-0-0" class="form-control" min="0" value="6">
+				</div>
+			</div>
+			<div class="row mb-3">
+				<label for="matrix-0-1" class="col-4 col-form-label" title="自己合作，对方欺骗的收益"><b>合作</b>/欺骗 的收益</label>
+				<div class="col-8">
+					<input type="number" id="matrix-0-1" class="form-control" min="0" value="0">
+				</div>
+			</div>
+			<div class="row mb-3">
+				<label for="matrix-1-0" class="col-4 col-form-label" title="自己欺骗，对方合作的收益"><b>欺骗</b>/合作 的收益</label>
+				<div class="col-8">
+					<input type="number" id="matrix-1-0" class="form-control" min="0" value="9">
+				</div>
+			</div>
+			<div class="row mb-3">
+				<label for="matrix-1-1" class="col-4 col-form-label" title="自己欺骗，对方欺骗的收益"><b>欺骗</b>/欺骗 的收益</label>
+				<div class="col-8">
+					<input type="number" id="matrix-1-1" class="form-control" min="0" value="1">
+				</div>
+			</div>
+			<div class="row mb-3">
+				<label for="alpha" class="col-4 col-form-label" title="值越大，agent 越关注近期信息 (0-1)">Learning rate</label>
+				<div class="col-8">
+					<input type="number" step="0.01" id="alpha" class="form-control" min="0" max="1" value="0.6">
+				</div>
+			</div>
+			<div class="row mb-3">
+				<label for="gamma" class="col-4 col-form-label" title="值越大，agent 越看重长期回报 (0-1)">Discount factor</label>
+				<div class="col-8">
+					<input type="number" step="0.01" id="gamma" class="form-control" min="0" max="1" value="0.99">
+				</div>
+			</div>
+			<div class="row mb-3">
+				<label for="eta" class="col-4 col-form-label" title="值越大，agent 的策略随机性越小 (>0)">Policy parameter</label>
+				<div class="col-8">
+					<input type="number" step="0.01" id="eta" class="form-control" min="0" value="0.03">
+				</div>
+			</div>
+			<div id="tune-1" class="text-center mt-4">
+				<button type="submit" class="btn btn-primary w-50">启动！</button>
+			</div>
+		</form>
+	</details>
+
+	<div id="game" class="flex-grow-1 d-none">
+		<div class="overflow-auto p-4 mb-3" style="height:300px">
+			<table class="table table-striped table-bordered" style="max-width:420px">
+				<thead>
+				<tr>
+					<th>游戏步数</th>
+					<th>你的选择</th>
+					<th>对方选择</th>
+					<th>你的收益</th>
+					<th>对方收益</th>
+				</tr>
+				</thead>
+				<tbody id="res"></tbody>
+			</table>
+		</div>
+		<hr>
+
+		<div class="p-4">
+			<h3 class="mb-4">你的总收益：<span id="user-o">0</span> / 对方总收益：<span id="view-o">0</span></h3>
+
+			<h3 class="mb-3">对方选择：</h3>
+			<p>
+				<button id="view" class="btn btn-outline-warning" disabled>（想好了）</button>
+				<button id="view-0" class="btn btn-outline-success" disabled>合作</button>
+				<button id="view-1" class="btn btn-outline-danger" disabled>欺骗</button>
+				<span id="view-res" class="fs-4">（收益：<b></b>）</span>
+			</p>
+			<h3 class="mb-3">你的选择：</h3>
+			<p>
+				<button id="user-0" class="btn btn-success" onclick="go(0)">合作</button>
+				<button id="user-1" class="btn btn-danger" onclick="go(1)">欺骗</button>
+				<span id="user-res" class="fs-4">（收益：<b></b>）</span>
+			</p>
+			<p>
+				<button id="next" class="btn btn-primary" onclick="reset()">继续</button>
+			</p>
+		</div>
+	</div>
+</div>
+<p style="position:fixed;right:3vw;bottom:2vh"><a href="../">主页</a></p>
+</body>
+<script>
+	let fi=id=>document.getElementById(id);
+
+	let his=2,step=0,state=[],action=Math.round(Math.random());
+	let matrix=[[6,0],[9,1]],alpha=0.6,gamma=0.99,eta=0.03;
+
+	let Q_function={},N_function={},res=[0,0];
+	let get_Q=(s,a)=>Q_function[s.concat([a])]??0;
+	let get_N=(s,a)=>N_function[s.concat([a])]??0;
+
+	[...document.getElementsByTagName("label")].forEach(e=>e.onclick=()=>alert(e.title));
+
+	function start()
+	{
+		fi("matrix-0-0").disabled=true;
+		fi("matrix-0-1").disabled=true;
+		fi("matrix-1-0").disabled=true;
+		fi("matrix-1-1").disabled=true;
+		fi("alpha").disabled=true;
+		fi("gamma").disabled=true;
+		fi("eta").disabled=true;
+
+		matrix=[[Number(fi("matrix-0-0").value),Number(fi("matrix-0-1").value)],
+			[Number(fi("matrix-1-0").value),Number(fi("matrix-1-1").value)]];
+		alpha=Number(fi("alpha").value);
+		gamma=Number(fi("gamma").value);
+		eta=Number(fi("eta").value);
+
+		fi("tune").open=false;
+		fi("tune-1").style.display="none";
+		reset();
+		fi("game").classList.remove("d-none");
+	}
+
+	function reset()
+	{
+		fi("next").style.display="none";
+
+		fi("view").style.display="inline-block";
+		fi("view-0").style.display="none";
+		fi("view-1").style.display="none";
+		fi("view-res").style.display="none";
+
+		fi("user-0").disabled=false;
+		fi("user-1").disabled=false;
+		fi("user-0").style.display="inline-block";
+		fi("user-1").style.display="inline-block";
+		fi("user-res").style.display="none";
+	}
+
+	function update(next)
+	{
+		let reward=matrix[action][next];
+		let state_next=(step<his?state:state.slice(2)).concat([action,next]);
+
+		if(step>=his)
+		{
+			let prob=[get_Q(state_next,0),get_Q(state_next,1)];
+			let Q_max=Math.max(...prob);
+			let exp0=Math.exp(eta*(prob[0]-Q_max)),exp1=Math.exp(eta*(prob[1]-Q_max));
+			prob=[exp0/(exp0+exp1),exp1/(exp0+exp1)];
+			let V_next=prob[0]*get_Q(state_next,0)+prob[1]*get_Q(state_next,1);
+			let alpha_t=1/(get_N(state,action)+1)**alpha;
+			Q_function[state.concat([action])]=(1-alpha_t)*get_Q(state,action)+alpha_t*(reward+gamma*V_next);
+			N_function[state.concat([action])]=get_N(state,action)+1;
+			action=Math.random()<prob[0]?0:1;
+		}
+		else
+			action=Math.round(Math.random());
+
+		step++;
+		state=state_next;
+	}
+
+	function go(choice)
+	{
+		fi("view").style.display="none";
+		fi("user-0").disabled=true;
+		fi("user-1").disabled=true;
+
+		fi(`user-${1-choice}`).style.display="none";
+		fi(`view-${action}`).style.display="inline-block";
+
+		fi("view-res").children[0].innerText=matrix[action][choice];
+		fi("view-res").style.display="inline";
+		fi("user-res").children[0].innerText=matrix[choice][action];
+		fi("user-res").style.display="inline";
+
+		res[0]+=matrix[choice][action];
+		res[1]+=matrix[action][choice];
+		fi("user-o").innerText=res[0].toString();
+		fi("view-o").innerText=res[1].toString();
+
+		let tr=document.createElement("tr");
+		let str=["合作","欺骗"];
+		tr.innerHTML=`<td>${step+1}</td><td>${str[choice]}</td><td>${str[action]}</td><td>${matrix[choice][action]}</td><td>${matrix[action][choice]}</td>`;
+		fi("res").insertBefore(tr,fi("res").firstChild);
+
+		update(choice);
+		fi("next").style.display="inline-block";
+	}
+</script>
+</html>
